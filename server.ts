@@ -3,7 +3,13 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize AI Clients
+const app = express();
+const PORT = 3000;
+
+// Increase payload limit for image uploads
+app.use(express.json({ limit: '50mb' }));
+
+// AI Clients (initialized at module level)
 const chatAi = process.env.CHAT_GEMINI_API_KEY 
   ? new GoogleGenAI({ apiKey: process.env.CHAT_GEMINI_API_KEY }) 
   : (process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null);
@@ -84,161 +90,154 @@ let products = [
   { id: 1, name: "Dừa Bến Tre", price: 170000, oldPrice: 15.99, image: "https://i.imgur.com/gK2x35x.jpeg", location: "Tp. Bến Tre", description: "Dừa Bến Tre từ lâu đã trở thành biểu tượng đặc trưng của vùng đất xứ dừa miền Tây..." },
   { id: 2, name: "Cao Su giống chuẩn", price: 45000, oldPrice: 15.99, image: "https://i.imgur.com/W29F6jT.jpeg", location: "TP. Tây Ninh", description: "Cây cao su (Hevea brasiliensis) là cây công nghiệp dài ngày, có nguồn gốc từ Nam Mỹ..." },
   { id: 3, name: "Hạt Điều rang muối", price: 450000, oldPrice: 15.99, image: "https://i.imgur.com/L1n7r1Q.jpeg", location: "Bình Phước", description: "Hạt điều là một trong những nông sản xuất khẩu chủ lực của Việt Nam..." },
-  { id: 4, name: "Cà Phê nguyên chất", price: 120000, oldPrice: 15.99, image: "https://i.imgur.com/R38G2rJ.jpeg", location: "Buôn Ma Thuột", description: "Cà phê sạch, nguyên chất, rang mộc 100%..." },
+  { id: 4, name: "Cà Phê nguyên chất", price: 120000, oldPrice: 15.99, image: "https://i.imgur.com/R38G2jJ.jpeg", location: "Buôn Ma Thuột", description: "Cà phê sạch, nguyên chất, rang mộc 100%..." },
   { id: 5, name: "Cảm Biến Độ Ẩm Đất Thông Minh IoT", price: 350000, oldPrice: 450.00, image: "https://i.imgur.com/pV1HsO3.png", location: "Quận 1, TP HCM", description: "Kết nối trực tiếp qua Wifi, sử dụng chip ESP32 bền bỉ đo độ ẩm đất liên tục 24/7." },
   { id: 6, name: "Hệ Thống Phun Sương Mini Toàn Diện", price: 1200000, oldPrice: null, image: "", location: "Đà Lạt", description: "Bao gồm bơm, béc phun và bộ điều khiển hẹn giờ qua app. Thích hợp cho trồng lan và rau thủy canh." },
   { id: 7, name: "Phân bón NPK siêu kali", price: 210000, oldPrice: 250000, image: "", location: "Cần Thơ", description: "Giúp chắc hạt, to quả, tăng độ ngọt cho các dòng cây ăn trái. Đặc biệt phù hợp cho giai đoạn xiết trái." },
   { id: 8, name: "Máy bay không người lái phun thuốc", price: 150000000, oldPrice: 180000000, image: "", location: "Nội Bài, Hà Nội", description: "Máy bay nông nghiệp DJI thế hệ mới, dung tích lớn, radar tránh vật cản đa hướng." },
 ];
 
-const app = express();
+// API Routes - Farms
+app.get("/api/farms", (req, res) => {
+  res.json(farms);
+});
 
-async function startServer() {
-  const PORT = 3000;
+app.get("/api/farms/:id", (req, res) => {
+  const farm = farms.find(f => f.id === req.params.id);
+  if (farm) res.json(farm);
+  else res.status(404).json({ error: "Farm not found" });
+});
 
-  // Increase payload limit for image uploads
-  app.use(express.json({ limit: '50mb' }));
+app.post("/api/farms/:id/devices/:deviceId", (req, res) => {
+  const farm = farms.find(f => f.id === req.params.id);
+  if (farm) {
+    const device = farm.devices.find(d => d.id === req.params.deviceId);
+    if (device) {
+      device.status = req.body.status;
+      res.json({ success: true, device });
+    } else res.status(404).json({ error: "Device not found" });
+  } else res.status(404).json({ error: "Farm not found" });
+});
 
-  // API Routes - Farms
-  app.get("/api/farms", (req, res) => {
-    res.json(farms);
-  });
+app.post("/api/farms", (req, res) => {
+  const { name, owner, phone, password } = req.body;
+  if (!name || !owner || !phone || !password) {
+    return res.status(400).json({ status: "1", msg: "Vui lòng điền đầy đủ thông tin" });
+  }
+  const newFarm: Farm = {
+    id: Math.random().toString(36).substring(2, 9),
+    name,
+    owner,
+    phone,
+    createdAt: new Date().toISOString(),
+    environment: { temperature: 25, humidity: 60, light: "Bình thường" },
+    devices: [
+      { id: "d1", name: "Bơm tưới 1", type: "pump", status: false },
+    ]
+  };
+  farms.push(newFarm);
+  res.json({ status: "0", msg: "Thêm điền trang thành công!" });
+});
 
-  app.get("/api/farms/:id", (req, res) => {
-    const farm = farms.find(f => f.id === req.params.id);
-    if (farm) res.json(farm);
-    else res.status(404).json({ error: "Farm not found" });
-  });
+app.delete("/api/farms/:id", (req, res) => {
+  const { id } = req.params;
+  farms = farms.filter(f => f.id !== id);
+  res.json({ status: "0", msg: "Xóa thành công!" });
+});
 
-  app.post("/api/farms/:id/devices/:deviceId", (req, res) => {
-    const farm = farms.find(f => f.id === req.params.id);
-    if (farm) {
-      const device = farm.devices.find(d => d.id === req.params.deviceId);
-      if (device) {
-        device.status = req.body.status;
-        res.json({ success: true, device });
-      } else res.status(404).json({ error: "Device not found" });
-    } else res.status(404).json({ error: "Farm not found" });
-  });
+// API Routes - AI Assistant (Chat)
+app.post("/api/ai/assistant", async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: "Text required" });
+  if (!chatAi) return res.status(503).json({ error: "AI Assistant Service not configured (CHAT_GEMINI_API_KEY)" });
 
-  app.post("/api/farms", (req, res) => {
-    const { name, owner, phone, password } = req.body;
-    if (!name || !owner || !phone || !password) {
-      return res.status(400).json({ status: "1", msg: "Vui lòng điền đầy đủ thông tin" });
-    }
-    const newFarm: Farm = {
-      id: Math.random().toString(36).substring(2, 9),
-      name,
-      owner,
-      phone,
-      createdAt: new Date().toISOString(),
-      environment: { temperature: 25, humidity: 60, light: "Bình thường" },
-      devices: [
-        { id: "d1", name: "Bơm tưới 1", type: "pump", status: false },
-      ]
-    };
-    farms.push(newFarm);
-    res.json({ status: "0", msg: "Thêm điền trang thành công!" });
-  });
+  try {
+    const response = await chatAi.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Bạn là một trợ lý nông nghiệp thông minh. Hãy trả lời câu hỏi của nông dân một cách chuyên nghiệp và thực tế. Tin nhắn: ${text}`
+    });
+    res.json({ text: response.text });
+  } catch (err: any) {
+    console.error("AI Assistant Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  app.delete("/api/farms/:id", (req, res) => {
-    const { id } = req.params;
-    farms = farms.filter(f => f.id !== id);
-    res.json({ status: "0", msg: "Xóa thành công!" });
-  });
+// API Routes - AI Diagnosis (Image Analysis)
+app.post("/api/ai/diagnosis", async (req, res) => {
+  const { imageBase64, cropType, keywords } = req.body;
+  if (!imageBase64 || !cropType) return res.status(400).json({ error: "Image and crop type required" });
+  if (!detectAi) return res.status(503).json({ error: "AI Diagnosis Service not configured (DETECT_GEMINI_API_KEY)" });
 
-  // API Routes - AI Assistant (Chat)
-  app.post("/api/ai/assistant", async (req, res) => {
-    const { text } = req.body;
-    if (!text) return res.status(400).json({ error: "Text required" });
-    if (!chatAi) return res.status(503).json({ error: "AI Assistant Service not configured (CHAT_GEMINI_API_KEY)" });
-
-    try {
-      const response = await chatAi.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Bạn là một trợ lý nông nghiệp thông minh. Hãy trả lời câu hỏi của nông dân một cách chuyên nghiệp và thực tế. Tin nhắn: ${text}`
-      });
-      res.json({ text: response.text });
-    } catch (err: any) {
-      console.error("AI Assistant Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // API Routes - AI Diagnosis (Image Analysis)
-  app.post("/api/ai/diagnosis", async (req, res) => {
-    const { imageBase64, cropType, keywords } = req.body;
-    if (!imageBase64 || !cropType) return res.status(400).json({ error: "Image and crop type required" });
-    if (!detectAi) return res.status(503).json({ error: "AI Diagnosis Service not configured (DETECT_GEMINI_API_KEY)" });
-
-    try {
-      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-      const prompt = `Bạn là một chuyên gia nông nghiệp hàng đầu. Hãy chuẩn đoán bệnh cho ${cropType} trong hình ảnh này. 
+  try {
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const prompt = `Bạn là một chuyên gia nông nghiệp hàng đầu. Hãy chuẩn đoán bệnh cho ${cropType} trong hình ảnh này. 
 [Dữ liệu tham khảo đặc thù cho loại cây này]: ${keywords || "Không có thông tin thêm"}. 
 Hãy trả lời dưới dạng JSON: { "disease": "...", "accuracy": "...", "advice": "..." }.`;
 
-      const response = await detectAi.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: "image/jpeg" } },
-            { text: prompt }
-          ]
-        },
-        config: { responseMimeType: "application/json" }
-      });
+    const response = await detectAi.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          { inlineData: { data: base64Data, mimeType: "image/jpeg" } },
+          { text: prompt }
+        ]
+      },
+      config: { responseMimeType: "application/json" }
+    });
 
-      let text = response.text || "{}";
-      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      res.json(JSON.parse(text));
-    } catch (err: any) {
-      console.error("AI Diagnosis Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
+    let text = response.text || "{}";
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    res.json(JSON.parse(text));
+  } catch (err: any) {
+    console.error("AI Diagnosis Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  // API Routes - AI Planning
-  app.post("/api/ai/plan", async (req, res) => {
-    const { farmData } = req.body;
-    if (!farmData) return res.status(400).json({ error: "Farm data required" });
-    if (!plannerAi) return res.status(503).json({ error: "AI Planner Service not configured (PLANNER_GEMINI_API_KEY)" });
+// API Routes - AI Planning
+app.post("/api/ai/plan", async (req, res) => {
+  const { farmData } = req.body;
+  if (!farmData) return res.status(400).json({ error: "Farm data required" });
+  if (!plannerAi) return res.status(503).json({ error: "AI Planner Service not configured (PLANNER_GEMINI_API_KEY)" });
 
-    try {
-      const response = await plannerAi.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Bạn là một chuyên gia lập kế hoạch nông nghiệp. 
-        Dữ liệu về điền trang của tôi: ${JSON.stringify(farmData)}.
-        Hãy lập một kế hoạch trồng trọt cực kỳ ngắn gọn (tối đa 5-7 câu) trong 30-90 ngày tới.
-        Chỉ bao gồm các mốc chính: Lịch tưới, bón phân, thu hoạch.
-        Hãy trả về kết quả dưới dạng Markdown súc tích, gạch đầu dòng rõ ràng.`,
-      });
-      res.json({ plan: response.text });
-    } catch (err: any) {
-      console.error("AI Plan Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
+  try {
+    const response = await plannerAi.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Bạn là một chuyên gia lập kế hoạch nông nghiệp. 
+      Dữ liệu về điền trang của tôi: ${JSON.stringify(farmData)}.
+      Hãy lập một kế hoạch trồng trọt cực kỳ ngắn gọn (tối đa 5-7 câu) trong 30-90 ngày tới.
+      Chỉ bao gồm các mốc chính: Lịch tưới, bón phân, thu hoạch.
+      Hãy trả về kết quả dưới dạng Markdown súc tích, gạch đầu dòng rõ ràng.`,
+    });
+    res.json({ plan: response.text });
+  } catch (err: any) {
+    console.error("AI Plan Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  // API Routes - Chat
-  app.get("/api/chat", (req, res) => res.json(chats));
+// API Routes - Chat
+app.get("/api/chat", (req, res) => res.json(chats));
 
-  app.post("/api/chat", async (req, res) => {
-    const { message } = req.body;
-    if (!message) return res.status(400).json({ error: "Message required" });
-    
-    // Just store the message history in this demo server
-    chats.push(message);
-    res.json({ success: true });
-  });
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: "Message required" });
+  
+  // Just store the message history in this demo server
+  chats.push(message);
+  res.json({ success: true });
+});
 
-  // API Routes - Products
-  app.get("/api/products", (req, res) => res.json(products));
+// API Routes - Products
+app.get("/api/products", (req, res) => res.json(products));
 
-  // Catch-all for undefined API routes to prevent returning HTML
-  app.all("/api/*", (req, res) => {
-    res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
-  });
+// Catch-all for undefined API routes to prevent returning HTML
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
+});
 
+async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -255,9 +254,12 @@ Hãy trả lời dưới dạng JSON: { "disease": "...", "accuracy": "...", "ad
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only listen on port 3000 if not in Vercel
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();

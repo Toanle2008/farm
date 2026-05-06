@@ -698,12 +698,19 @@ function FarmDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ farmData: farm })
       });
+      
+      const text = await resp.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        data = { error: `Mã phản hồi từ máy chủ không hợp lệ (JSON Error): ${text.substring(0, 50)}...` };
+      }
+
       if (resp.ok) {
-        const data = await resp.json();
         setAiPlan(data.plan);
       } else {
-        const errData = await resp.json();
-        throw new Error(errData.error || "Lỗi AI");
+        throw new Error(data.error || `Lỗi AI (${resp.status})`);
       }
     } catch (err: any) {
       console.error("Plan Error:", err);
@@ -945,12 +952,18 @@ function AIAssistant() {
         body: JSON.stringify({ text })
       });
 
-      if (!resp.ok) {
-        const errData = await resp.json();
-        throw new Error(errData.error || "Lỗi server");
+      const respText = await resp.text();
+      let data;
+      try {
+        data = respText ? JSON.parse(respText) : {};
+      } catch (e) {
+        data = { error: `Lỗi định dạng phản hồi (JSON Error): ${respText.substring(0, 50)}...` };
       }
 
-      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || `Lỗi server (${resp.status})`);
+      }
+
       const responseText = data.text;
       
       if (responseText) {
@@ -1079,12 +1092,17 @@ function Diagnosis() {
         })
       });
 
-      if (!resp.ok) {
-        const errData = await resp.json();
-        throw new Error(errData.error || "Lỗi server");
+      const respText = await resp.text();
+      let diagnosticData;
+      try {
+        diagnosticData = respText ? JSON.parse(respText) : {};
+      } catch (e) {
+        diagnosticData = { error: `Lỗi chuẩn đoán: Phản hồi không đúng định dạng. (${respText.substring(0, 50)})` };
       }
 
-      const diagnosticData = await resp.json();
+      if (!resp.ok) {
+        throw new Error(diagnosticData.error || `Lỗi server (${resp.status})`);
+      }
 
       setResult({
         crop: selectedCrop,
