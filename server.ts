@@ -1,26 +1,27 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
+import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
 
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 // Increase payload limit for image uploads
 app.use(express.json({ limit: '50mb' }));
 
 // AI Clients (initialized at module level)
 const chatAi = process.env.CHAT_GEMINI_API_KEY 
   ? new GoogleGenAI({ apiKey: process.env.CHAT_GEMINI_API_KEY }) 
-  : (process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null);
+  : null;
 
 const detectAi = process.env.DETECT_GEMINI_API_KEY 
   ? new GoogleGenAI({ apiKey: process.env.DETECT_GEMINI_API_KEY }) 
-  : (process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null);
+  : null;
 
 const plannerAi = process.env.PLANNER_GEMINI_API_KEY 
   ? new GoogleGenAI({ apiKey: process.env.PLANNER_GEMINI_API_KEY }) 
-  : (process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null);
+  : null;
 
 // In-memory databases for demo purposes
 interface Farm {
@@ -96,6 +97,14 @@ let products = [
   { id: 7, name: "Phân bón NPK siêu kali", price: 210000, oldPrice: 250000, image: "", location: "Cần Thơ", description: "Giúp chắc hạt, to quả, tăng độ ngọt cho các dòng cây ăn trái. Đặc biệt phù hợp cho giai đoạn xiết trái." },
   { id: 8, name: "Máy bay không người lái phun thuốc", price: 150000000, oldPrice: 180000000, image: "", location: "Nội Bài, Hà Nội", description: "Máy bay nông nghiệp DJI thế hệ mới, dung tích lớn, radar tránh vật cản đa hướng." },
 ];
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
+app.get("/api/test", (req, res) => res.json({ message: "API is working", method: req.method }));
 
 // API Routes - Farms
 app.get("/api/farms", (req, res) => {
@@ -240,6 +249,7 @@ app.all("/api/*", (req, res) => {
 async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -255,7 +265,7 @@ async function startServer() {
   }
 
   // Only listen on port 3000 if not in Vercel
-  if (!process.env.VERCEL) {
+  if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
