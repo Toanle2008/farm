@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+}
+
+:root {
+  --primary: #1e88e5;
+  --primary-dark: #1565c0;
+  --primary-light: #e3f2fd;
+}

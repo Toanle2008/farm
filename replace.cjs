@@ -1,0 +1,12 @@
+const fs = require('fs');
+let content = fs.readFileSync('src/App.tsx', 'utf-8');
+content = content.replace(/\[#1e88e5\]/g, 'primary');
+content = content.replace(/\[#2196f3\]/g, 'primary');
+content = content.replace(/\[#448aff\]/g, 'primary');
+content = content.replace(/\[#1976d2\]/g, 'primary-dark');
+content = content.replace(/\[#1565c0\]/g, 'primary-dark');
+content = content.replace(/\[#2979ff\]/g, 'primary-dark');
+content = content.replace(/\[#0d47a1\]/g, 'primary-dark');
+content = content.replace(/\[#e3f2fd\]/g, 'primary-light');
+fs.writeFileSync('src/App.tsx', content);
+console.log('Done');

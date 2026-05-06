@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "Farm": {
+      "title": "Farm",
+      "description": "Information about a farm and its layout/sensors",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "owner": { "type": "string" },
+        "phone": { "type": "string" },
+        "password": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "grid": { "type": "object" },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "temperature": { "type": "number" },
+            "humidity": { "type": "number" },
+            "light": { "type": "string" }
+          }
+        },
+        "devices": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["name", "owner", "phone"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Global chat message",
+      "type": "object",
+      "properties": {
+        "sender": { "type": "string" },
+        "text": { "type": "string" },
+        "time": { "type": "string" }
+      },
+      "required": ["sender", "text", "time"]
+    },
+    "Post": {
+      "title": "Forum Post",
+      "description": "Community forum post",
+      "type": "object",
+      "properties": {
+        "author": { "type": "string" },
+        "initial": { "type": "string" },
+        "content": { "type": "string" },
+        "time": { "type": "string" },
+        "image": { "type": "string" },
+        "verified": { "type": "boolean" }
+      },
+      "required": ["author", "content", "time"]
+    }
+  },
+  "firestore": {
+    "/farms/{farmId}": {
+      "schema": "Farm",
+      "description": "Farms collection"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Global chat room"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Forum posts"
+    }
+  }
+}
