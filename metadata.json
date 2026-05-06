@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Farm System",
+  "description": "Hệ thống quản lý nông trại thông minh với trợ lý AI và cộng đồng nông dân.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

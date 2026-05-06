@@ -54,6 +54,23 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
 }
 
+const cleanAiResponse = (text: any) => {
+  if (typeof text !== 'string') return '';
+  return text.replace(/[#*]/g, '').trim();
+};
+
+const getAnonymousName = () => {
+  try {
+    const existing = localStorage.getItem('anon_name');
+    if (existing) return existing;
+    const newName = "Ẩn danh #" + Math.floor(1000 + Math.random() * 9000);
+    localStorage.setItem('anon_name', newName);
+    return newName;
+  } catch (e) {
+    return "Ẩn danh #0000";
+  }
+};
+
 function Sidebar({ isOpen, setOpen }: { isOpen: boolean, setOpen: (b: boolean) => void }) {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -75,7 +92,7 @@ function Sidebar({ isOpen, setOpen }: { isOpen: boolean, setOpen: (b: boolean) =
                 <LayoutDashboard size={24} id="logo-icon"/>
               </div>
               <span className={cn("text-xl font-bold tracking-tight", themeMode === 'dark' ? "text-white" : "text-[#111928]")}>
-                Farm<span className="text-primary">Console</span>
+                Farm<span className="text-primary">System</span>
               </span>
             </div>
         </Link>
@@ -152,7 +169,7 @@ function Sidebar({ isOpen, setOpen }: { isOpen: boolean, setOpen: (b: boolean) =
         </div>
       </div>
       <div className="p-4 text-center text-xs text-slate-400 font-medium pb-6 pt-2">
-         Farm Console v2.0
+         Farm System v2.0
       </div>
     </aside>
   );
@@ -380,7 +397,13 @@ function Chat() {
     const q = query(collection(db, "messages"), orderBy("time", "asc"));
     const unsub = onSnapshot(q, (snapshot) => {
       const dbMsgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMessages([...welcomeMessages, ...dbMsgs]);
+      // Sort to ensure correct order
+      const combined = [...welcomeMessages, ...dbMsgs].sort((a: any, b: any) => {
+        const timeA = a.time?.seconds || (a.time ? new Date(a.time).getTime() / 1000 : 0);
+        const timeB = b.time?.seconds || (b.time ? new Date(b.time).getTime() / 1000 : 0);
+        return timeA - timeB;
+      });
+      setMessages(combined);
     }, (err) => handleFirestoreError(err, OperationType.LIST, "messages"));
     return () => unsub();
   }, []);
@@ -393,10 +416,11 @@ function Chat() {
     e.preventDefault();
     if (!input.trim()) return;
     const text = input;
+    const anonName = getAnonymousName();
     setInput("");
     try {
       await addDoc(collection(db, "messages"), {
-        sender: "User-" + Math.floor(Math.random() * 1000),
+        sender: anonName,
         text,
         time: Timestamp.now()
       });
@@ -427,7 +451,7 @@ function Chat() {
               {!m.system ? (
                 <>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-[10px] font-black text-slate-500">{m.sender.charAt(0)}</div>
+                    <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-[10px] font-black text-slate-500">{(m.sender || "?").charAt(0)}</div>
                     <span className="text-xs font-black text-slate-400">{m.sender}</span>
                   </div>
                   <div className={cn("max-w-[80%] px-6 py-4 rounded-3xl shadow-sm text-sm font-bold leading-relaxed", themeMode === 'dark' ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700")}>
@@ -538,50 +562,322 @@ function Community() {
 
 function Store() {
   const { themeMode } = React.useContext(ThemeContext);
-  const products = [
-    { id: 1, name: "Cảm Biến IoT v4 Smart", price: 1250000, category: "Thiết bị", img: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?auto=format&fit=crop&q=80&w=600" },
-    { id: 2, name: "Hệ Thống Phun Tưới Tự Động", price: 4500000, category: "Hệ thống", img: "https://images.unsplash.com/photo-1592984788913-2947116bd06c?auto=format&fit=crop&q=80&w=600" },
-    { id: 3, name: "Phân Bón Hữu Cơ Cao Cấp", price: 320000, category: "Vật tư", img: "https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?auto=format&fit=crop&q=80&w=600" },
-    { id: 4, name: "Máy Bay Xịt Thuốc DJI T40", price: 125000000, category: "Drone", img: "https://images.unsplash.com/photo-1579829366248-204fe8413f31?auto=format&fit=crop&q=80&w=600" },
-    { id: 5, name: "Bộ Kit Thủy Canh 20 Ống", price: 2100000, category: "Trồng trọt", img: "https://images.unsplash.com/photo-1558449028-b53a39d100fc?auto=format&fit=crop&q=80&w=600" },
-    { id: 6, name: "Hạt Giống Ngô Mỹ F1", price: 150000, category: "Hạt giống", img: "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&q=80&w=600" },
-    { id: 7, name: "Trạm Thời Tiết IoT", price: 3500000, category: "Thiết bị", img: "https://images.unsplash.com/photo-1590055531615-f16d36e2f181?auto=format&fit=crop&q=80&w=600" },
-    { id: 8, name: "Đèn LED Quang Phổ Full", price: 850000, category: "Thiết bị", img: "https://images.unsplash.com/photo-1501862700950-18382cd41497?auto=format&fit=crop&q=80&w=600" },
-    { id: 9, name: "Máy Cắt Cỏ Cầm Tay", price: 1800000, category: "Công cụ", img: "https://images.unsplash.com/photo-1599423423927-aa28e0892015?auto=format&fit=crop&q=80&w=600" },
-    { id: 10, name: "Bình Phun Thuốc Điện 20L", price: 750000, category: "Vật tư", img: "https://images.unsplash.com/photo-1591857177580-dc82b9ac4e1e?auto=format&fit=crop&q=80&w=600" },
-    { id: 11, name: "Hạt Giống Đậu Nành Thái", price: 220000, category: "Hạt giống", img: "https://images.unsplash.com/photo-1558448834-8be05c56dc48?auto=format&fit=crop&q=80&w=600" },
-    { id: 12, name: "Cảm Biến pH Đất Bluetooth", price: 650000, category: "Thiết bị", img: "https://images.unsplash.com/photo-1563911302283-d2bc129e7570?auto=format&fit=crop&q=80&w=600" }
-  ];
+  const [products, setProducts] = useState<any[]>([]);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [cart, setCart] = useState<any[]>(() => {
+    const saved = localStorage.getItem('farm_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    price: 0,
+    category: "Vật tư",
+    img: "",
+    description: "Sản phẩm chất lượng cao cho nông nghiệp thông minh."
+  });
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "store_products"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setProducts(data);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('farm_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  const addToCart = (product: any) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    Swal.fire({
+      title: "Đã thêm vào giỏ",
+      text: product.name,
+      icon: "success",
+      toast: true,
+      position: 'top-end',
+      timer: 2000,
+      showConfirmButton: false
+    });
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateQuantity = (id: string, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }));
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingProduct) {
+        await updateDoc(doc(db, "store_products", editingProduct.id), formData);
+        Swal.fire("Thành công", "Đã cập nhật sản phẩm", "success");
+      } else {
+        await addDoc(collection(db, "store_products"), formData);
+        Swal.fire("Thành công", "Đã thêm sản phẩm mới", "success");
+      }
+      setIsAddOpen(false);
+      setEditingProduct(null);
+      setFormData({ name: "", price: 0, category: "Vật tư", img: "", description: "Sản phẩm chất lượng cao cho nông nghiệp thông minh." });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, "store_products");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const res = await Swal.fire({
+      title: "Xác nhận xóa?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Xóa",
+      cancelButtonText: "Hủy"
+    });
+    if (res.isConfirmed) {
+      await deleteDoc(doc(db, "store_products", id));
+      Swal.fire("Đã xóa", "", "success");
+    }
+  };
 
   return (
     <div className="p-10 w-full max-w-7xl mx-auto space-y-12" id="store-page">
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end flex-wrap gap-4">
         <div>
            <h2 className={cn("text-4xl font-black", themeMode === 'dark' ? "text-white" : "text-slate-900")}>Gian Hàng Vật Tư</h2>
-           <p className={cn("font-bold mt-2", themeMode === 'dark' ? "text-slate-400" : "text-slate-500")}>Dành riêng cho cộng đồng FarmConsole - 8 Sản phẩm sẵn có</p>
+           <p className={cn("font-bold mt-2", themeMode === 'dark' ? "text-slate-400" : "text-slate-500")}>Dành riêng cho cộng đồng FarmSystem - {products.length} Sản phẩm sẵn có</p>
         </div>
-        <button className="bg-slate-900 dark:bg-white dark:text-black text-white px-8 py-4 rounded-2xl font-black shadow-2xl flex items-center gap-3 active:scale-95 transition-all">
-          Giỏ Hàng <ShoppingCart size={20} />
-        </button>
+        <div className="flex gap-4">
+          <button onClick={() => { setIsAddOpen(true); setEditingProduct(null); }} className="bg-primary text-white px-8 py-4 rounded-2xl font-black shadow-2xl flex items-center gap-3 active:scale-95 transition-all">
+            Thêm Sản Phẩm <PlusCircle size={20} />
+          </button>
+          <button onClick={() => setIsCartOpen(true)} className="bg-slate-900 dark:bg-white dark:text-black text-white px-8 py-4 rounded-2xl font-black shadow-2xl flex items-center gap-3 active:scale-95 transition-all relative">
+            Giỏ Hàng <ShoppingCart size={20} />
+            {cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-black">{cart.length}</span>}
+          </button>
+        </div>
       </div>
+
+      {isAddOpen && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsAddOpen(false)}></div>
+          <div className={cn("w-full max-w-md rounded-3xl shadow-2xl z-10 flex flex-col p-10 border", themeMode === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={cn("text-2xl font-black", themeMode === 'dark' ? "text-white" : "text-slate-900")}>{editingProduct ? "Sửa Sản Phẩm" : "Thêm Sản Phẩm"}</h3>
+              <button onClick={() => setIsAddOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleSaveProduct} className="space-y-4">
+              <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Tên sản phẩm" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:border-slate-700" required />
+              <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} placeholder="Giá (đ)" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:border-slate-700" required />
+              <input value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} placeholder="Danh mục" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:border-slate-700" required />
+              <input value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} placeholder="Link ảnh" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:border-slate-700" required />
+              <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Mô tả sản phẩm" className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:border-slate-700 h-24" />
+              <button type="submit" className="w-full py-4 bg-primary text-white rounded-xl font-black">LƯU SẢN PHẨM</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedProduct && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setSelectedProduct(null)}></div>
+          <div className={cn("w-full max-w-4xl rounded-[2.5rem] shadow-2xl z-10 flex flex-col md:flex-row overflow-hidden border", themeMode === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}>
+            <div className="w-full md:w-1/2 h-64 md:h-auto relative">
+              <img src={selectedProduct.img || "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f"} alt={selectedProduct.name} className="w-full h-full object-cover" />
+              <div className="absolute top-6 left-6 bg-primary text-white px-4 py-2 rounded-2xl font-black text-sm shadow-xl tracking-wider">{(selectedProduct.category || "Vật tư").toUpperCase()}</div>
+            </div>
+            <div className="w-full md:w-1/2 p-10 flex flex-col">
+              <div className="flex justify-between items-start mb-6">
+                 <div>
+                    <h3 className={cn("text-3xl font-black mb-2", themeMode === 'dark' ? "text-white" : "text-slate-900")}>{selectedProduct.name}</h3>
+                    <p className="text-primary font-black text-4xl leading-none">{(selectedProduct.price || 0).toLocaleString('vi-VN')} đ</p>
+                 </div>
+                 <button onClick={() => setSelectedProduct(null)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={28} /></button>
+              </div>
+              <div className={cn("flex-1 mb-10 font-medium leading-relaxed prose prose-slate dark:prose-invert", themeMode === 'dark' ? "text-slate-300" : "text-slate-600")}>
+                 {selectedProduct.description || "Sản phẩm chất lượng cao phục vụ nông nghiệp thông minh, được kiểm định nghiêm ngặt về độ bền và hiệu năng."}
+              </div>
+              <div className="flex gap-4">
+                <button onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }} className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white py-5 rounded-3xl font-black flex items-center justify-center gap-3 hover:bg-slate-200 transition-all">
+                  THÊM VÀO GIỎ <ShoppingCart size={20} />
+                </button>
+                <button 
+                  onClick={() => { setSelectedProduct(null); addToCart(selectedProduct); setIsCartOpen(true); }}
+                  className="flex-[1.5] bg-primary text-white py-5 rounded-3xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-lg tracking-widest"
+                >
+                  MUA NGAY
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCartOpen && (
+        <div className="fixed inset-0 z-[110] flex justify-end">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}></div>
+          <div className={cn("w-full max-w-lg h-full z-10 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300", themeMode === 'dark' ? "bg-slate-900 text-white" : "bg-white text-slate-900")}>
+            <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center">
+              <h3 className="text-2xl font-black flex items-center gap-3">Giỏ Hàng <ShoppingCart size={24} className="text-primary" /></h3>
+              <button onClick={() => setIsCartOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:rotate-90 transition-all duration-300"><X size={24} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8 space-y-6">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+                  <ShoppingCart size={80} strokeWidth={1} />
+                  <p className="font-bold text-lg">Giỏ hàng của bạn đang trống</p>
+                  <button onClick={() => setIsCartOpen(false)} className="text-primary font-black underline">Tiếp tục mua sắm</button>
+                </div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.id} className="flex gap-4 p-4 rounded-3xl bg-slate-50 dark:bg-slate-800 items-center">
+                    <img src={item.img} alt={item.name} className="w-20 h-20 rounded-2xl object-cover shadow-md" />
+                    <div className="flex-1">
+                      <h4 className="font-black text-lg line-clamp-1">{item.name}</h4>
+                      <p className="text-primary font-bold">{item.price.toLocaleString('vi-VN')} đ</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm">-</button>
+                        <span className="font-black w-4 text-center">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm">+</button>
+                      </div>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id)} className="text-slate-400 hover:text-red-500 p-2"><X size={20} /></button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="p-8 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                <div className="flex justify-between items-center mb-6">
+                  <span className="text-slate-400 font-bold uppercase tracking-widest">Tổng cộng</span>
+                  <span className="text-3xl font-black text-primary">{cartTotal.toLocaleString('vi-VN')} đ</span>
+                </div>
+                <button 
+                  onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}
+                  className="w-full bg-primary text-white py-5 rounded-3xl font-black text-xl shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-4"
+                >
+                  THANH TOÁN NGAY <ArrowRightCircle size={24} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isCheckoutOpen && (
+        <div className="fixed inset-0 z-[120] flex justify-center items-center p-4">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" onClick={() => setIsCheckoutOpen(false)}></div>
+          <div className={cn("w-full max-w-lg rounded-[3rem] shadow-2xl z-10 flex flex-col p-10 border relative overflow-hidden", themeMode === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
+            <div className="flex justify-between items-center mb-10 relative z-10">
+              <h3 className={cn("text-3xl font-black", themeMode === 'dark' ? "text-white" : "text-slate-900")}>Thanh Toán</h3>
+              <button onClick={() => setIsCheckoutOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:rotate-90 transition-all"><X size={24} /></button>
+            </div>
+
+            <div className="space-y-8 relative z-10">
+              <div className="bg-primary/5 border border-primary/10 rounded-[2rem] p-8 text-center space-y-4">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Tổng tiền cần thanh toán</p>
+                <p className="text-5xl font-black text-primary">{cartTotal.toLocaleString('vi-VN')} đ</p>
+                <div className="h-0.5 bg-primary/10 w-full my-4"></div>
+                <p className="text-slate-400 font-bold text-sm leading-relaxed">Vui lòng chuyển khoản chính xác số tiền trên với nội dung là Tên của bạn.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex items-center gap-6 p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-sm shrink-0">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/25/Logo_MB_Bank.png" alt="MB Bank" className="w-full object-contain" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Ngân hàng quân đội (MB)</h4>
+                    <p className="text-2xl font-black text-primary tracking-wider">0876727067</p>
+                    <p className={cn("font-bold text-sm", themeMode === 'dark' ? "text-slate-300" : "text-slate-600")}>CHỦ TK: FARM SYSTEM</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="w-48 h-48 bg-white p-4 rounded-3xl shadow-2xl border-4 border-primary/10 relative">
+                   <img src={`https://img.vietqr.io/image/MB-0876727067-compact2.jpg?amount=${cartTotal}&addInfo=Thanh%20toan%20FarmSystem&accountName=TRAN%20NGOC%20QUYNH%20ANH`} alt="QR Thanh Toan" className="w-full h-full object-contain" />
+                </div>
+                <p className="text-xs font-black text-slate-400 italic">Quét QR để thanh toán nhanh qua ứng dụng Ngân hàng</p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  Swal.fire({
+                    title: 'Xác nhận đã chuyển khoản?',
+                    text: 'Hệ thống sẽ kiểm tra và xác nhận đơn hàng của bạn trong ít phút.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Đã hoàn tất',
+                    cancelButtonText: 'Kiểm tra lại'
+                  }).then((result) => {
+                    if (result.isConfirmed) {
+                      setCart([]);
+                      setIsCheckoutOpen(false);
+                      Swal.fire("Cảm ơn!", "Đơn hàng của bạn đang được xử lý.", "success");
+                    }
+                  });
+                }}
+                className="w-full bg-primary text-white py-5 rounded-3xl font-black text-xl shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-center"
+              >
+                TÔI ĐÃ CHUYỂN KHOẢN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
         {products.map(p => (
-          <div key={p.id} className={cn("rounded-[2.5rem] border overflow-hidden shadow-sm hover:shadow-2xl transition-all group", themeMode === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100")}>
-            <div className="h-64 overflow-hidden relative">
-              <img src={p.img} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-              <div className="absolute top-4 left-4 bg-primary text-white p-3 rounded-2xl font-black text-xs shadow-xl">{p.category.toUpperCase()}</div>
+          <div key={p.id} className={cn("rounded-[2.5rem] border overflow-hidden shadow-sm hover:shadow-2xl transition-all group cursor-pointer", themeMode === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100")}>
+            <div className="h-64 overflow-hidden relative" onClick={() => setSelectedProduct(p)}>
+              <img src={p.img || "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f"} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+              <div className="absolute top-4 left-4 bg-primary text-white p-3 rounded-2xl font-black text-xs shadow-xl">{(p.category || "Vật tư").toUpperCase()}</div>
+              <div className="absolute top-4 right-4 flex gap-2">
+                <button onClick={(e) => { e.stopPropagation(); setEditingProduct(p); setFormData({name: p.name, price: p.price, category: p.category, img: p.img, description: p.description || ""}); setIsAddOpen(true); }} className="bg-white text-slate-900 p-2 rounded-full shadow-lg hover:scale-110"><PlusCircle size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:scale-110"><X size={16} /></button>
+              </div>
             </div>
-            <div className="p-8">
+            <div className="p-8" onClick={() => setSelectedProduct(p)}>
               <h4 className={cn("text-xl font-black mb-2 line-clamp-1", themeMode === 'dark' ? "text-white" : "text-slate-900")}>{p.name}</h4>
-              <p className="text-primary font-black text-3xl mb-8">{p.price.toLocaleString('vi-VN')} đ</p>
-              <button 
-                id={`buy-btn-${p.id}`}
-                onClick={() => Swal.fire('Thông báo', 'Chúng tôi sẽ liên hệ báo giá lắp đặt cho bạn!', 'info')}
-                className="w-full bg-slate-900 dark:bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:translate-y-[-4px] active:translate-y-0 transition-all tracking-wider"
-              >
-                LIÊN HỆ MUA
-              </button>
+              <p className="text-primary font-black text-3xl mb-8">{(p.price || 0).toLocaleString('vi-VN')} đ</p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); addToCart(p); }}
+                  className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white py-4 rounded-2xl font-black shadow-sm hover:bg-slate-200 transition-all flex items-center justify-center p-2"
+                >
+                  <ShoppingCart size={20} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); addToCart(p); setIsCartOpen(true); }}
+                  className="flex-[3] bg-slate-900 dark:bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:translate-y-[-4px] active:translate-y-0 transition-all tracking-widest text-sm"
+                >
+                  MUA NGAY
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -787,9 +1083,9 @@ function FarmDetail() {
             </h3>
             <button onClick={() => setAiPlan(null)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={24} /></button>
           </div>
-          <div className={cn("markdown-body font-medium leading-relaxed prose prose-slate dark:prose-invert max-w-none", themeMode === 'dark' ? "text-slate-300" : "text-slate-700")}>
-            <Markdown>{aiPlan}</Markdown>
-          </div>
+              <div className={cn("markdown-body font-medium leading-relaxed prose prose-slate dark:prose-invert max-w-none", themeMode === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                <Markdown>{cleanAiResponse(aiPlan)}</Markdown>
+              </div>
         </div>
       )}
 
@@ -893,7 +1189,19 @@ function FarmDetail() {
                   <div key={d.id} className="flex justify-between items-center p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
                     <span className="font-black text-slate-700 dark:text-slate-300">{d.name}</span>
                     <button 
-                      onClick={() => Swal.fire('IoT Control', `Đã chuyển đổi trạng thái ${d.name}`, 'success')}
+                      onClick={async () => {
+                        const newDevices = farm.devices?.map((dev: any) => dev.id === d.id ? { ...dev, status: !dev.status } : dev);
+                        await updateDoc(doc(db, "farms", farm.id), { devices: newDevices });
+                        Swal.fire({
+                          title: 'IoT Control',
+                          text: `Đã ${!d.status ? 'bật' : 'tắt'} ${d.name}`,
+                          icon: 'success',
+                          toast: true,
+                          position: 'top-end',
+                          timer: 2000,
+                          showConfirmButton: false
+                        });
+                      }}
                       className={cn("w-14 h-8 rounded-full relative transition-all duration-500 shadow-inner", d.status ? "bg-primary" : "bg-slate-300 dark:bg-slate-700")}
                     >
                        <div className={cn("w-6 h-6 bg-white rounded-full absolute top-1 transition-all shadow-md", d.status ? "right-1" : "left-1")}></div>
@@ -941,7 +1249,8 @@ function AIAssistant() {
     setIsTyping(true);
     
     // Add user message locally for immediate feedback
-    const userMsg = { sender: "Bạn", text, time: new Date().toISOString() };
+    const anonName = getAnonymousName();
+    const userMsg = { sender: anonName, text, time: new Date().toISOString() };
     setMessages(prev => [...prev, userMsg]);
 
     try {
@@ -1003,20 +1312,20 @@ function AIAssistant() {
         
         <div className="flex-1 overflow-y-auto p-10 space-y-6 flex flex-col">
           {messages.map((m, i) => (
-            <div key={i} className={cn("flex flex-col gap-2", m.sender === "Bạn" ? "items-end" : "items-start")}>
+            <div key={i} className={cn("flex flex-col gap-2", m.sender !== "Trợ lý AI" ? "items-end" : "items-start")}>
               <div className="flex items-center gap-2">
-                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black", m.sender === "Bạn" ? "bg-primary text-white" : "bg-slate-200 text-slate-500")}>
-                  {m.sender.charAt(0)}
+                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black", m.sender !== "Trợ lý AI" ? "bg-primary text-white" : "bg-slate-200 text-slate-500")}>
+                  {(m.sender || "?").charAt(0)}
                 </div>
                 <span className="text-xs font-black text-slate-400">{m.sender}</span>
               </div>
               <div className={cn(
-                "max-w-[80%] px-6 py-4 rounded-3xl shadow-sm text-sm font-bold leading-relaxed", 
-                m.sender === "Bạn" 
+                "max-w-[80%] px-6 py-4 rounded-3xl shadow-sm text-sm font-bold leading-relaxed whitespace-pre-wrap", 
+                m.sender !== "Trợ lý AI" 
                   ? "bg-primary text-white" 
                   : (themeMode === 'dark' ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700")
               )}>
-                {m.text}
+                {m.sender === "Trợ lý AI" ? cleanAiResponse(m.text) : m.text}
               </div>
             </div>
           ))}
