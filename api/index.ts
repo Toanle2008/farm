@@ -7,16 +7,16 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-function getModel(apiKey: string | undefined, modelName: string = "gemini-1.5-flash") {
+function getModel(apiKey: string | undefined, modelName: string = "gemini-3-flash-preview") {
   if (!apiKey) return null;
   const genAI = new GoogleGenerativeAI(apiKey);
   return genAI.getGenerativeModel({ model: modelName });
 }
 
 // AI Models (initialized lazily)
-const getChatModel = () => getModel(process.env.CHAT_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
-const getDetectModel = () => getModel(process.env.DETECT_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
-const getPlannerModel = () => getModel(process.env.PLANNER_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
+const getChatModel = () => getModel(process.env.CHAT_GEMINI_API_KEY);
+const getDetectModel = () => getModel(process.env.DETECT_GEMINI_API_KEY);
+const getPlannerModel = () => getModel(process.env.PLANNER_GEMINI_API_KEY);
 
 interface Farm {
   id: string;
