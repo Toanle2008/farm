@@ -91,8 +91,9 @@ let products = [
   { id: 8, name: "Máy bay không người lái phun thuốc", price: 150000000, oldPrice: 180000000, image: "", location: "Nội Bài, Hà Nội", description: "Máy bay nông nghiệp DJI thế hệ mới, dung tích lớn, radar tránh vật cản đa hướng." },
 ];
 
+const app = express();
+
 async function startServer() {
-  const app = express();
   const PORT = 3000;
 
   // Increase payload limit for image uploads
@@ -154,10 +155,8 @@ async function startServer() {
 
     try {
       const response = await chatAi.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [
-          { role: "user", parts: [{ text: `Bạn là một trợ lý nông nghiệp thông minh. Hãy trả lời câu hỏi của nông dân một cách chuyên nghiệp và thực tế. Tin nhắn: ${text}` }] }
-        ]
+        model: "gemini-3-flash-preview",
+        contents: `Bạn là một trợ lý nông nghiệp thông minh. Hãy trả lời câu hỏi của nông dân một cách chuyên nghiệp và thực tế. Tin nhắn: ${text}`
       });
       res.json({ text: response.text });
     } catch (err: any) {
@@ -179,15 +178,13 @@ async function startServer() {
 Hãy trả lời dưới dạng JSON: { "disease": "...", "accuracy": "...", "advice": "..." }.`;
 
       const response = await detectAi.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [
-          {
-            parts: [
-              { inlineData: { data: base64Data, mimeType: "image/jpeg" } },
-              { text: prompt }
-            ]
-          }
-        ],
+        model: "gemini-3-flash-preview",
+        contents: {
+          parts: [
+            { inlineData: { data: base64Data, mimeType: "image/jpeg" } },
+            { text: prompt }
+          ]
+        },
         config: { responseMimeType: "application/json" }
       });
 
@@ -208,7 +205,7 @@ Hãy trả lời dưới dạng JSON: { "disease": "...", "accuracy": "...", "ad
 
     try {
       const response = await plannerAi.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-3-flash-preview",
         contents: `Bạn là một chuyên gia lập kế hoạch nông nghiệp. 
         Dữ liệu về điền trang của tôi: ${JSON.stringify(farmData)}.
         Hãy lập một kế hoạch trồng trọt cực kỳ ngắn gọn (tối đa 5-7 câu) trong 30-90 ngày tới.
@@ -237,6 +234,11 @@ Hãy trả lời dưới dạng JSON: { "disease": "...", "accuracy": "...", "ad
   // API Routes - Products
   app.get("/api/products", (req, res) => res.json(products));
 
+  // Catch-all for undefined API routes to prevent returning HTML
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -259,3 +261,5 @@ Hãy trả lời dưới dạng JSON: { "disease": "...", "accuracy": "...", "ad
 }
 
 startServer();
+
+export default app;
